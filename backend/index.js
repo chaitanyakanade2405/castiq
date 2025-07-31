@@ -1,41 +1,33 @@
-const express = require('express');
-// 1. Import the WebSocket and WebSocketServer classes
 const { WebSocket, WebSocketServer } = require('ws');
+const crypto = require('crypto'); // Built-in Node.js module for unique IDs
 
-const app = express();
-const port = 8080;
+const wss = new WebSocketServer({ port: 8080 });
+const clients = new Map();
 
-// Start a regular HTTP server using Express
-const server = app.listen(port, () => {
-  console.log(`Server is listening on port ${port}`);
-});
-
-// 2. Create a WebSocket server and attach it to the HTTP server
-const wss = new WebSocketServer({ server });
-
-// 3. Set up a 'connection' event listener
 wss.on('connection', (ws) => {
-  console.log('A new client connected!');
+  // 1. Generate a unique ID for the new client
+  const userID = crypto.randomUUID();
+  clients.set(userID, ws);
+  console.log(`User registered with ID: ${userID}`);
 
-  // When a message is received from a client...
+  // 2. Send the newly generated ID back to the client
+  ws.send(JSON.stringify({ type: 'id-assigned', userID }));
+
   ws.on('message', (message) => {
-    console.log('received: %s', message);
+    const data = JSON.parse(message);
+    const targetUserID = data.to;
+    const targetClient = clients.get(targetUserID);
 
-    // Broadcast the message to all other connected clients
-    wss.clients.forEach((client) => {
-      if (client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(message.toString());
-      }
-    });
+    if (targetClient && targetClient.readyState === WebSocket.OPEN) {
+      data.from = userID;
+      console.log(`Forwarding message from ${userID} to ${targetUserID}`);
+      targetClient.send(JSON.stringify(data));
+    }
   });
 
-  // When a client disconnects...
   ws.on('close', () => {
-    console.log('Client has disconnected.');
-  });
-
-  // Handle potential errors
-  ws.on('error', (error) => {
-    console.error('WebSocket error:', error);
+    console.log(`User ${userID} disconnected.`);
+    clients.delete(userID);
   });
 });
+console.log('Truly smart signaling server started on port 8080');
