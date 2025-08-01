@@ -5,7 +5,7 @@ import './App.css';
 const socket = new WebSocket('ws://localhost:8080');
 
 function App() {
-  // State for streams and IDs
+  // State for streams, IDs, and call status
   const [myStream, setMyStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
   const [myID, setMyID] = useState('');
@@ -28,7 +28,9 @@ function App() {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then(stream => {
         setMyStream(stream);
-        if(myVideo.current) myVideo.current.srcObject = stream;
+        if(myVideo.current) {
+          myVideo.current.srcObject = stream;
+        }
       });
     
     socket.onmessage = (message) => {
@@ -38,12 +40,14 @@ function App() {
       } else if (signal.offer) {
         answerCall(signal);
       } else if (signal.answer) {
-        connectionRef.current.signal(signal.answer);
+        if (connectionRef.current) {
+          connectionRef.current.signal(signal.answer);
+        }
       }
     };
   }, []);
 
-  // Effect for combining video streams onto a canvas
+  // Effect for combining video and audio streams onto a canvas
   useEffect(() => {
     if (myStream && remoteStream && canvasRef.current) {
       const canvas = canvasRef.current;
@@ -61,40 +65,67 @@ function App() {
       };
       drawVideos();
       
-      const stream = canvas.captureStream(30);
-      setCombinedStream(stream);
+      const canvasStream = canvas.captureStream(30);
+      
+      const myAudioTrack = myStream.getAudioTracks()[0];
+      const remoteAudioTrack = remoteStream.getAudioTracks()[0];
+      
+      if (myAudioTrack) canvasStream.addTrack(myAudioTrack);
+      if (remoteAudioTrack) canvasStream.addTrack(remoteAudioTrack);
+      
+      setCombinedStream(canvasStream);
     }
   }, [myStream, remoteStream]);
 
   // --- Call Functions ---
   const callUser = () => {
     if (!peerID) {
-        alert("Please enter the peer's ID to call.");
-        return;
+      alert("Please enter the peer's ID to call.");
+      return;
     }
     const peer = new Peer({ initiator: true, trickle: false });
-    if (myStream) peer.addStream(myStream);
-    peer.on('signal', (data) => socket.send(JSON.stringify({ offer: data, to: peerID })));
-    peer.on('stream', (stream) => { if (remoteVideo.current) remoteVideo.current.srcObject = stream; });
+    if (myStream) {
+      peer.addStream(myStream);
+    }
+    peer.on('signal', (data) => {
+      socket.send(JSON.stringify({ offer: data, to: peerID }));
+    });
+    peer.on('stream', (stream) => {
+      if (remoteVideo.current) {
+        remoteVideo.current.srcObject = stream;
+        setRemoteStream(stream);
+      }
+    });
     connectionRef.current = peer;
   };
 
   const answerCall = (signal) => {
     const peer = new Peer({ initiator: false, trickle: false });
-    if (myStream) peer.addStream(myStream);
-    peer.on('signal', (data) => socket.send(JSON.stringify({ answer: data, to: signal.from })));
-    peer.on('stream', (stream) => { if (remoteVideo.current) remoteVideo.current.srcObject = stream; });
+    if (myStream) {
+      peer.addStream(myStream);
+    }
+    peer.on('signal', (data) => {
+      socket.send(JSON.stringify({ answer: data, to: signal.from }));
+    });
+    peer.on('stream', (stream) => {
+      if (remoteVideo.current) {
+        remoteVideo.current.srcObject = stream;
+        setRemoteStream(stream);
+      }
+    });
     peer.signal(signal.offer);
     connectionRef.current = peer;
   };
 
   // --- Recording Functions ---
   const startRecording = () => {
-    const streamToRecord = combinedStream || myStream; // Record combined stream if available, otherwise just local
+    const streamToRecord = combinedStream || myStream;
     if (streamToRecord) {
       mediaRecorderRef.current = new MediaRecorder(streamToRecord, { mimeType: 'video/webm' });
       mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) setRecordedChunks((prev) => [...prev, event.data]);
+        if (event.data.size > 0) {
+          setRecordedChunks((prev) => [...prev, event.data]);
+        }
       };
       mediaRecorderRef.current.start();
       setIsRecording(true);
@@ -108,17 +139,24 @@ function App() {
     }
   };
 
-  const downloadRecording = () => {
-    if (recordedChunks.length > 0) {
-      const blob = new Blob(recordedChunks, { type: 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `castiq-recording-${Date.now()}.webm`;
-      document.body.appendChild(a);
-      a.click();
-      URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+  const uploadRecording = async () => {
+    if (recordedChunks.length === 0) return;
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    const formData = new FormData();
+    formData.append('video', blob, `recording-${Date.now()}.webm`);
+    try {
+      const response = await fetch('http://localhost:8080/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      if (response.ok) {
+        alert("Recording uploaded successfully!");
+      } else {
+        alert("Upload failed.");
+      }
+    } catch (error) {
+      alert("An error occurred during upload.");
+    } finally {
       setRecordedChunks([]);
     }
   };
@@ -126,15 +164,13 @@ function App() {
   return (
     <div className="App">
       <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
-      
       <h1>CastIQ</h1>
       <div className="video-grid">
         <video playsInline muted ref={myVideo} autoPlay />
         <video playsInline ref={remoteVideo} autoPlay />
       </div>
-
       <div className="controls">
-        <p>Your ID: <strong>{myID}</strong> (Share this with your friend)</p>
+        <p>Your ID: <strong>{myID}</strong></p>
         <div>
           <input 
             type="text" 
@@ -144,8 +180,6 @@ function App() {
           />
           <button onClick={callUser}>Call</button>
         </div>
-        
-        {/* --- Recording UI is now back --- */}
         <div>
           {isRecording ? (
             <button onClick={stopRecording}>Stop Recording</button>
@@ -153,7 +187,7 @@ function App() {
             <button onClick={startRecording}>Start Recording</button>
           )}
           {recordedChunks.length > 0 && !isRecording && (
-            <button onClick={downloadRecording}>Download</button>
+            <button onClick={uploadRecording}>Upload Recording</button>
           )}
         </div>
       </div>
