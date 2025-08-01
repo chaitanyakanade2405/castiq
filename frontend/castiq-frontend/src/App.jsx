@@ -139,23 +139,50 @@ function App() {
     }
   };
 
-  const uploadRecording = async () => {
+ const uploadRecording = async () => {
     if (recordedChunks.length === 0) return;
+
     const blob = new Blob(recordedChunks, { type: 'video/webm' });
     const formData = new FormData();
     formData.append('video', blob, `recording-${Date.now()}.webm`);
+
     try {
-      const response = await fetch('http://localhost:8080/upload', {
+      // --- First, upload the recording ---
+      console.log("Uploading recording...");
+      const uploadResponse = await fetch('http://localhost:8080/upload', {
         method: 'POST',
         body: formData,
       });
-      if (response.ok) {
-        alert("Recording uploaded successfully!");
+
+      if (uploadResponse.ok) {
+        const uploadResult = await uploadResponse.json();
+        console.log("Upload successful:", uploadResult);
+        alert("Upload successful! Starting render process...");
+
+        // --- NEW: If upload is successful, trigger the render ---
+        console.log("Triggering render for file:", uploadResult.path);
+        const renderResponse = await fetch('http://localhost:8080/render', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ fileName: uploadResult.path }),
+        });
+
+        if (renderResponse.ok) {
+          const renderResult = await renderResponse.json();
+          console.log("Render successful:", renderResult);
+          alert("Video rendering complete!");
+        } else {
+          alert("Render process failed.");
+        }
+
       } else {
         alert("Upload failed.");
       }
     } catch (error) {
-      alert("An error occurred during upload.");
+      console.error("An error occurred:", error);
+      alert("An error occurred during the process.");
     } finally {
       setRecordedChunks([]);
     }
