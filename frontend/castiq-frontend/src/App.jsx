@@ -114,13 +114,27 @@ function App() {
     formData.append('video', blob, fileName);
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8080/upload', { method: 'POST', body: formData });
-      if (response.ok) {
-        const result = await response.json();
-        alert("Recording uploaded successfully!");
-        setLastUploadedPath(result.path);
+      const uploadResponse = await fetch('http://localhost:8080/upload', { 
+        method: 'POST', 
+        body: formData 
+      });
+
+      if (uploadResponse.ok) {
+        const uploadResult = await uploadResponse.json();
+        alert("Upload successful! The video will now be rendered in the background.");
+        setLastUploadedPath(uploadResult.path);
         setTranscript('');
         setSummary('');
+
+        // Automatically trigger the render process in the background
+        console.log("Triggering render for file:", uploadResult.path);
+        fetch('http://localhost:8080/render', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName: uploadResult.path }),
+        });
+        // We don't "await" this, so the UI can continue while the server works.
+
       } else {
         alert("Upload failed.");
       }
