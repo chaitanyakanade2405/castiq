@@ -383,25 +383,63 @@ const clients = new Map();
 wss.on('connection', (ws) => {
   const userID = crypto.randomUUID();
   clients.set(userID, ws);
-  console.log(`User registered with ID: ${userID}`);
-  try { ws.send(JSON.stringify({ type: 'id-assigned', userID })); } catch (e) {}
+  console.log(` User registered with ID: ${userID}`);
+  
+  // Send ID to client
+  try { 
+    ws.send(JSON.stringify({ type: 'id-assigned', userID })); 
+  } catch (e) {
+    console.error('Error sending ID:', e.message);
+  }
 
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message.toString());
+      console.log(` Message from ${userID}:`, data.offer ? 'OFFER' : data.answer ? 'ANSWER' : 'OTHER');
+      
       const targetUserID = data.to;
+      
+      if (!targetUserID) {
+        console.warn(' No target ID specified');
+        return;
+      }
+      
       const targetClient = clients.get(targetUserID);
-      if (targetClient && targetClient.readyState === targetClient.OPEN) {
+      
+      if (!targetClient) {
+        console.warn(` Target client ${targetUserID} not found`);
+        ws.send(JSON.stringify({ 
+          error: 'Target peer not found',
+          targetId: targetUserID 
+        }));
+        return;
+      }
+      
+      // Check if target connection is open (fixed - use ws.OPEN constant)
+      if (targetClient.readyState === ws.OPEN) {
         data.from = userID;
         targetClient.send(JSON.stringify(data));
+        console.log(` Routed message from ${userID} to ${targetUserID}`);
+      } else {
+        console.warn(` Target client ${targetUserID} connection not open (state: ${targetClient.readyState})`);
+        ws.send(JSON.stringify({ 
+          error: 'Target peer connection not ready',
+          targetId: targetUserID 
+        }));
       }
     } catch (e) {
-      console.warn('WS message parse/send error', e.message);
+      console.error(' WS message parse/send error:', e.message);
     }
   });
 
   ws.on('close', () => {
-    console.log(`User ${userID} disconnected.`);
+    console.log(` User ${userID} disconnected.`);
     clients.delete(userID);
   });
+
+  ws.on('error', (error) => {
+    console.error(` WebSocket error for ${userID}:`, error.message);
+  });
 });
+
+console.log(' WebSocket server ready for peer connections');
