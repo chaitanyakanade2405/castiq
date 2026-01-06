@@ -1,63 +1,63 @@
-CastIQ – AI Powered Podcasting Platform
+# 🎙️ CastIQ – AI-Powered Podcasting Platform
 
-CastIQ is an AI-powered podcasting and video-recording platform designed to make content creation simple, automated, and intelligent. It enables users to record videos through the browser, automatically merge intro/outro clips, transcribe speech, and generate smart summaries using AI models.
+**CastIQ** is an AI-powered podcasting and video recording platform designed to make content creation **simple, automated, and intelligent**.  
+It allows users to record videos directly from the browser, automatically process them with intros/outros, transcribe speech, and generate smart AI summaries.
 
-This project is built fully with free tools, open-source models, and zero external paid services.
+> ⚡ Built entirely using **free tools**, **open-source models**, and **zero paid services**.
 
-🚀 Features
-🎥 1. Browser-Based Video Recording
+---
 
-Record video/audio directly from the browser using WebRTC
+## 🚀 Features
 
-Auto-assign unique user IDs for each session
+### 🎥 1. Browser-Based Video Recording
+- Record video and audio directly from the browser using **WebRTC**
+- Automatically assigns **unique user IDs** per session
+- Supports **peer-to-peer calls** (prototype stage)
 
-Peer-to-peer call support (initial prototype)
+---
 
-🎬 2. Automated Video Rendering (FFmpeg Pipeline)
+### 🎬 2. Automated Video Rendering (FFmpeg Pipeline)
+The backend performs:
+- Downloading recorded video
+- Adding **intro & outro clips**
+- Audio normalization
+- Merging all segments into a **final MP4**
+- Safe cleanup of temporary files
 
-The backend:
+---
 
-Downloads recorded video
+### 🗣️ 3. Speech-to-Text Transcription (Local Python Server)
+- Uses a dedicated **Python microservice**
+- Supports **Whisper-like open-source models**
+- Converts extracted audio (`WAV`) → **text transcript**
+- Powered via **HuggingFace Transformers**
 
-Adds intro and outro clips
+---
 
-Normalizes audio
+### 🧠 4. AI Summarization (HuggingFace)
+- Uses **free HuggingFace Inference API**
+- Supports models like **DistilBART / Pegasus**
+- Implements **retry logic & fallbacks** for reliability
 
-Merges everything into a final MP4 output
+---
 
-Cleans temporary files safely
+### 🎧 5. Audio Extraction & Processing
+- FFmpeg extracts **mono 16 kHz WAV audio**
+- Fully compatible with Whisper-style models
 
-🗣️ 3. Speech-to-Text Transcription (Local Python Server)
+---
 
-Uses a Python microservice to run transcription
+### 🗂️ 6. Clean Frontend & Backend Architecture
+Clear separation of concerns:
+- Frontend → UI & recording
+- Backend → video processing & orchestration
+- Python service → transcription
 
-Whisper-like open-source models supported (via HuggingFace Transformers)
+---
 
-Converts extracted audio (WAV) → text transcript
+## 🏗️ Project Structure
 
-🧠 4. AI Summarization using HuggingFace
-
-Uses free HuggingFace Inference API (distilbart/pegasus-like models)
-
-Summarizes transcripts efficiently
-
-Includes retry logic + fallbacks for reliability
-
-🎧 5. Audio Extraction & Processing
-
-FFmpeg automatically extracts mono 16 kHz WAV audio
-
-Ensures compatibility with Whisper-style models
-
-🗂️ 6. Organized Frontend & Backend Architecture
-
-Clean code separation:
-
-/frontend/castiq-frontend         → Vite + React application
-/backend                          → Node.js server + video pipeline
-/backend/transcriber              → Python transcription microservice
-
-🏗️ Project Structure
+```bash
 CastIQ
 │
 ├── frontend/
@@ -77,110 +77,115 @@ CastIQ
     ├── assets/
     │   ├── intro.webm
     │   └── outro.webm
-    ├── tmp/                     → Auto-generated temporary files
+    ├── tmp/                 # Auto-generated temporary files
     ├── transcriber/
     │   ├── venv/
-    │   └── server.py           → Python transcription server
-    ├── index.js                 → Main Node.js backend
+    │   └── server.py        # Python transcription server
+    ├── index.js             # Main Node.js backend
     ├── supabaseClient.js
     ├── .env
     └── package.json
+```
+---
 
-⚙️ Tech Stack
-Frontend
+## ⚙️ Tech Stack
 
-React (Vite)
+### Frontend
+- **React (Vite)**
+- **WebRTC**
+- **Tailwind CSS / CSS**
 
-WebRTC
+### Backend
+- **Node.js + Express**
+- **FFmpeg** (video & audio processing)
+- **Supabase** (optional storage)
+- **HuggingFace API** (AI summarization)
+- **Python microservice** (speech-to-text transcription)
 
-Tailwind / CSS
+---
 
-Backend
+## 🔧 Setup Instructions
 
-Node.js + Express
-
-FFmpeg for video rendering
-
-Supabase for storage (optional)
-
-HuggingFace API for summarization
-
-Python microservice for transcription
-
-🔧 Setup Instructions
-1. Clone the Project
-git clone <your-repo-url>
+### 1️⃣ Clone the Repository
+```bash
+git clone <repository-url>
 cd CastIQ
-
-2. Setup Backend
+### 2️⃣ Backend Setup
 cd backend
 npm install
-
 Create a .env file:
+
+env
+Copy code
 SUPABASE_URL=
 SUPABASE_KEY=
 HUGGINGFACE_API_KEY=
 PORT=8080
+Run the backend:
 
-Run the backend
+bash
+Copy code
 node index.js
-
-3. Setup Python Transcription Server
-cd transcriber
+3️⃣ Python Transcription Server Setup
+bash
+Copy code
+cd backend/transcriber
 python -m venv venv
-venv\Scripts\activate     # For Windows
+venv\Scripts\activate   # For Windows
 pip install -r requirements.txt
 python server.py
-
-4. Setup Frontend
+4️⃣ Frontend Setup
+bash
+Copy code
 cd frontend/castiq-frontend
 npm install
 npm run dev
+🎞️ Full Processing Pipeline
+1️⃣ User records video in the browser
+2️⃣ Frontend uploads recorded .webm file to backend
 
-🎞️ How the Full Pipeline Works
-1️⃣ User records video in browser
-2️⃣ Frontend uploads .webm to backend
-3️⃣ Backend:
+3️⃣ Backend processing:
 
-✔ downloads it
-✔ extracts audio
-✔ merges intro + output + outro
-✔ saves final MP4
+Downloads the video
 
-4️⃣ Backend sends audio to Python
+Extracts audio using FFmpeg
 
-✔ Python transcribes
-✔ Sends text back
+Merges intro + main video + outro
 
-5️⃣ Node backend sends transcript to HuggingFace
+Generates final MP4 output
 
-✔ Generates summary
-✔ Returns final structured response
+4️⃣ Audio is sent to Python transcription service
 
-📌 Current Status
+Audio → Transcript
 
-Recording → Working
+5️⃣ Transcript is sent to HuggingFace
 
-Rendering → Working (audio validated in VLC)
+Transcript → AI Summary
 
-Transcription → Working
+6️⃣ Final transcript & summary are returned to frontend
+```
+---
 
-Summarization → Working (fallback logic added)
+## 📌 Current Status
+### Feature	Status
+- Browser Recording	✅ Working
+- Video Rendering	✅ Working
+- Audio Validation	✅ Verified (VLC)
+- Transcription	✅ Working
+- AI Summarization	✅ Working (Fallback Logic Added)
+- Transcript Display	✅ Working
+- UI Polishing	⏳ In Progress
+- Multi-User Call Support	🚧 Planned
 
-Frontend transcript display → Working
+## 🛠️ Future Roadmap
+- 🎞️ Timeline-based video editing
 
-UI polishing → Next phase
+- ✂️ AI filler-word removal
 
-Full multi-user call support → Future enhancement
+- 🔇 Background noise reduction
 
-🛠️ Future Roadmap
+- ☁️ Downloadable MP4 hosting via Supabase
 
-Add timeline-based editing
+- 🎨 Fully designed UI/UX
 
-AI cleanup: filler word removal
-
-Background noise reduction
-
-Host downloadable MP4s via Supabase
-
-Fully designed UI/UX
+- 👥 Stable multi-user call support
